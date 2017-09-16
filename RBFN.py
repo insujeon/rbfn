@@ -10,11 +10,10 @@ torch.manual_seed(777)
 class RbfNet(nn.Module):
     def __init__(self, centers, num_class=10):
         super(RbfNet, self).__init__()
-
         self.num_class = num_class
         self.num_centers = centers.size(0)
 
-        self.centers = Variable(centers).cuda()
+        self.centers = nn.Parameter(centers)
         self.beta = nn.Parameter(torch.ones(1,self.num_centers)/10)
         self.linear = nn.Linear(self.num_centers, self.num_class, bias=True)
         utils.initialize_weights(self)
@@ -63,8 +62,9 @@ class RBFN(object):
                                           pin_memory=True)
 
         self.center_id = random.sample(range(1,len(self.train_data)), self.num_centers)
-        self.centers = self.train_data.train_data[self.center_id,].unsqueeze(1).float().div(255)
-        #self.centers = torch.rand(1000,28*28).cuda()
+        #TODO: sometime nan value exists in centers (b!=b).nonzero()
+        #self.centers = self.train_data.train_data[self.center_id,].unsqueeze(1).float().div(255)
+        self.centers = torch.rand(self.num_centers,28*28)
 
         self.model = RbfNet(self.centers, num_class=self.num_class)
         self.model.cuda()
@@ -83,6 +83,7 @@ class RBFN(object):
 
                 X = Variable(batch_images.view(-1, 28 * 28)).cuda()
                 Y = Variable(batch_labels).cuda()        # label is not one-hot encoded
+                import ipdb; ipdb.set_trace(context=20)
 
                 self.optimizer.zero_grad()             # Zero Gradient Container
                 Y_prediction = self.model(X)           # Forward Propagation
@@ -90,7 +91,9 @@ class RBFN(object):
                 cost.backward()                   # compute gradient
                 self.optimizer.step()                  # gradient update
 
+                import ipdb; ipdb.set_trace(context=20)
                 avg_cost += cost / total_batch
+                print("center sum: %f" % (self.model.centers.data.sum()))
 
             print("[Epoch: {:>4}] cost = {:>.9}".format(epoch + 1, avg_cost.data[0]))
         print(" [*] Training finished!")
@@ -106,7 +109,7 @@ class RBFN(object):
             total += 1
             correct += (predicted == labels).sum()
 
-        print('Accuracy of the network on the 10000 test images: %d %%' % (100 * correct / total))
+        print('Accuracy of the network on the 10000 test images: %f %%' % (100 * correct / total))
         print(" [*] Testing finished!")
 
     def save(self):
